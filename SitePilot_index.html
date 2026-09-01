@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SitePilot Duct Take-Off</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#0b0f13;color:#f4f7fa;font-family:Arial,sans-serif}
+header{padding:18px 28px;border-bottom:1px solid #29323a;font-size:22px;font-weight:900}header span{color:#9cff00}
+main{max-width:1200px;margin:auto;padding:30px 22px}.hero h1{font-size:42px;margin:0}.hero h1 span{color:#9cff00}.hero p{color:#9ba5ad}
+.card{background:#141a20;border:1px solid #29323a;border-radius:14px;padding:20px;margin-top:20px}
+input,select{background:#0b1014;color:white;border:1px solid #39434c;border-radius:7px;padding:10px}
+.drop{border:2px dashed #59656e;border-radius:10px;padding:32px;text-align:center;cursor:pointer}.drop input{display:none}
+button{background:#9cff00;border:0;border-radius:8px;padding:13px 18px;font-weight:900;cursor:pointer;margin-top:14px}
+.controls{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.layout{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+#viewer{background:#05070a;min-height:600px;border-radius:10px;overflow:auto;padding:10px}.page{position:relative;display:inline-block}.page canvas{display:block;max-width:100%;height:auto}
+table{width:100%;border-collapse:collapse;font-size:12px}th,td{padding:9px;border-bottom:1px solid #2b333a;text-align:left}th{font-size:9px;color:#9cff00}
+.green{color:#9cff00}.muted{color:#7b8790}.warning{color:#ffc857}.hidden{display:none}
+@media(max-width:850px){.layout{grid-template-columns:1fr}.hero h1{font-size:34px}}
+</style>
+</head>
+<body>
+<header>SITE<span>PILOT</span> <small>DUCT TAKE-OFF</small></header>
+<main>
+<section class="hero"><h1>UK duct take-off, <span>in your browser.</span></h1>
+<p>Free development version. Upload a drawing, confirm its printed scale, view the drawing and build your take-off.</p></section>
+
+<div class="card">
+<label class="drop"><input id="pdf" type="file" accept="application/pdf"><b id="filename">CLICK TO CHOOSE YOUR DRAWING</b><br><span class="muted">PDF drawing</span></label>
+<div class="controls" style="margin-top:16px">
+<label>Scale 1:<input id="scale" value="75" type="number" min="1" style="width:90px"></label>
+<label>Type <select id="type"><option value="round">Round / spiral</option><option value="rect">Rectangular</option></select></label>
+<label>Length <input id="length" type="number" step="0.01" value="3" style="width:90px"> m</label>
+<button id="add">ADD DUCT RUN</button>
+</div>
+<p class="muted">The scale is deliberately entered/confirmed from the current drawing. Never assume a scale from another job.</p>
+</div>
+
+<div class="layout">
+<div class="card"><h3>Drawing</h3><div id="viewer"><span class="muted">Choose a PDF to display it here.</span></div></div>
+<div class="card"><h3>Take-off</h3><div id="summary" class="muted">No duct runs added yet.</div>
+<table id="tbl" class="hidden"><thead><tr><th>TYPE</th><th>LENGTH</th><th>STOCK</th><th>ORDER</th><th>SUPPORTS</th></tr></thead><tbody></tbody></table>
+<p class="warning">Free version: automatic geometric duct recognition is not connected yet. This version does not pretend guessed measurements are accurate.</p>
+</div>
+</div>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs" type="module"></script>
+<script type="module">
+import * as pdfjsLib from "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.min.mjs";
+pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.4.168/pdf.worker.min.mjs";
+const pdf=document.querySelector('#pdf'), viewer=document.querySelector('#viewer'), filename=document.querySelector('#filename');
+const runs=[];
+pdf.onchange=async()=>{
+ const f=pdf.files[0]; if(!f)return; filename.textContent=f.name;
+ const data=await f.arrayBuffer(); const doc=await pdfjsLib.getDocument({data}).promise; viewer.innerHTML='';
+ for(let n=1;n<=doc.numPages;n++){const page=await doc.getPage(n);const scale=1.25;const vp=page.getViewport({scale});
+ const wrap=document.createElement('div');wrap.className='page';const c=document.createElement('canvas');c.width=vp.width;c.height=vp.height;c.style.maxWidth='100%';wrap.appendChild(c);viewer.appendChild(wrap);
+ await page.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;}
+};
+document.querySelector('#add').onclick=()=>{
+ const len=Number(document.querySelector('#length').value), type=document.querySelector('#type').value;
+ if(!len||len<=0)return; const stock=type==='round'?3:1.5; const order=Math.ceil(len/stock); const supports=Math.ceil(len/2.8)+1;
+ runs.push({type,len,stock,order,supports});render();
+};
+function render(){const tb=document.querySelector('#tbl tbody');tb.innerHTML='';
+ let total=0; runs.forEach(r=>{total+=r.len;const tr=document.createElement('tr');tr.innerHTML=`<td>${r.type==='round'?'Round / spiral':'Rectangular'}</td><td>${r.len.toFixed(2)}m</td><td>${r.stock}m</td><td>x${r.order}</td><td>x${r.supports}</td>`;tb.appendChild(tr)});
+ document.querySelector('#summary').innerHTML=`<span class="green">${runs.length}</span> duct runs • <span class="green">${total.toFixed(2)}m</span> labour metres`;
+ document.querySelector('#tbl').classList.toggle('hidden',!runs.length);
+}
+</script>
+</body></html>
